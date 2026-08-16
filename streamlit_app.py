@@ -1,138 +1,179 @@
 import streamlit as st
 from seller_agent import run_agent
-import os
+import json
+from datetime import datetime
 
-# Page configuration
 st.set_page_config(
-    page_title="Seller Intelligence Agent",
+    page_title="Dealbaku - Supplier Intelligence",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 st.markdown("""
     <style>
-    .main-header {
-        text-align: center;
-        padding: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .header {
+        background: linear-gradient(135deg, #1f4788 0%, #2d5fa8 100%);
+        padding: 30px;
         border-radius: 10px;
         color: white;
+        margin-bottom: 30px;
     }
-    .stButton>button {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        font-weight: bold;
+    .supplier-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #1f4788;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.markdown("""
-    <div class="main-header">
-    <h1>🔍 Seller Intelligence Agent</h1>
-    <p>Find Verified Suppliers in 30 Seconds</p>
+    <div class="header">
+    <h1>🔍 Dealbaku</h1>
+    <p>AI-Powered Supplier Intelligence Platform</p>
+    <small>Find verified suppliers with market analysis in seconds</small>
     </div>
 """, unsafe_allow_html=True)
 
-st.write("")
+tab1, tab2 = st.tabs(["🔍 Search Suppliers", "📊 About"])
 
-# Sidebar
-with st.sidebar:
-    st.header("About This Tool")
-    st.write("""
-    This AI-powered platform helps traders and importers find the best suppliers from China and Asia.
+with tab1:
+    col1, col2 = st.columns([3, 1])
     
-    **How it works:**
-    1. Enter any product name
-    2. AI searches 4 major B2B platforms
-    3. Analyzes 15+ suppliers
-    4. Ranks top 5 verified sellers
-    5. Download professional PDF report
+    with col1:
+        product_query = st.text_input(
+            "Search for suppliers:",
+            placeholder="e.g., LED lights, Electric generators, Textiles, Industrial machinery",
+            key="product_search"
+        )
     
-    **Platforms covered:**
-    - Alibaba International
-    - Global Sources
-    - Made-in-China
-    - YiwuGo
-    """)
-
-# Main content
-col1, col2 = st.columns([2, 1], gap="large")
-
-with col1:
-    st.subheader("🔎 Search Suppliers")
-    product_name = st.text_input(
-        "Enter product name:",
-        placeholder="e.g., LED lights, Textiles, Machinery",
-        key="product_input"
-    )
-
-with col2:
-    st.subheader("Quick Examples")
-    if st.button("⚡ LED Lights"):
-        product_name = "LED lights"
-    if st.button("⚡ Textiles"):
-        product_name = "Textiles"
-    if st.button("⚡ Machinery"):
-        product_name = "Machinery"
-
-st.write("")
-
-# Search button
-if st.button("🚀 Find Suppliers", key="search_btn", use_container_width=True):
-    if product_name:
-        with st.spinner(f"🔍 Finding suppliers for {product_name}..."):
-            result = run_agent(product_name)
+    with col2:
+        search_button = st.button("🔍 Search", use_container_width=True)
+    
+    if search_button and product_query:
+        st.session_state.last_search = product_query
+        
+        with st.spinner(f"🔍 Analyzing {product_query}..."):
+            result = run_agent(product_query)
+        
+        if "error" not in result:
+            st.success(f"✅ Analysis complete for **{product_query}**")
             
-            if "error" not in result:
-                # Display results
-                st.success("✅ Suppliers found!")
-                st.write("")
-                
-                # Display top 5 suppliers
-                st.subheader(f"Top 5 Suppliers: {product_name}")
-                
-                if result['ranking'].get('top_5_sellers'):
-                    for seller in result['ranking']['top_5_sellers'][:5]:
-                        col1, col2, col3 = st.columns([1, 2, 1])
-                        
-                        with col1:
-                            st.metric(f"Rank {seller.get('rank')}", f"{seller.get('rating', 'N/A')}/10")
-                        
-                        with col2:
-                            st.write(f"**{seller.get('name', 'N/A')}**")
-                            st.write(f"📍 {seller.get('country', 'N/A')} | ⏱️ {seller.get('years_active', 'N/A')} years | ⭐ {seller.get('review_count', 'N/A')} reviews")
-                            st.write(f"Platform: {seller.get('platform', 'N/A')}")
-                            st.write(f"📧 {seller.get('contact', 'N/A')}")
-                        
-                        with col3:
-                            st.write(seller.get('recommendation', ''))
-                        
-                        st.write("---")
-                
-                # Download PDF
-                if result.get('pdf_path') and os.path.exists(result['pdf_path']):
-                    with open(result['pdf_path'], 'rb') as pdf_file:
-                        st.download_button(
-                            label="📥 Download PDF Report",
-                            data=pdf_file,
-                            file_name=f"suppliers_{product_name.replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                
-                st.write("")
-                st.info("💡 **Next step:** Contact the top 3 suppliers to negotiate pricing and delivery terms.")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Database Size", result.get('total_database', 0))
+            with col2:
+                st.metric("Relevant Suppliers", result.get('relevant_suppliers', 0))
+            with col3:
+                st.metric("Top Ranked", len(result.get('top_5', [])))
+            with col4:
+                st.metric("Analysis Time", "2-3 min")
             
-            else:
-                st.error(f"❌ Error: {result.get('error')}")
-    else:
+            st.divider()
+            
+            st.subheader("📈 Market Intelligence")
+            market = result.get('market_data', {})
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.info(f"💰 **Price Range**\n${market.get('price_range_low', 'N/A')}-${market.get('price_range_high', 'N/A')}")
+            with col2:
+                st.info(f"📦 **Min Order**\n{market.get('min_order', 'N/A')} {market.get('min_order_unit', 'units')}")
+            with col3:
+                st.info(f"⏱️ **Lead Time**\n{market.get('lead_time_low', 'N/A')}-{market.get('lead_time_high', 'N/A')} days")
+            with col4:
+                st.info(f"✅ **Certifications**\n{', '.join(market.get('certifications', []))}")
+            
+            st.divider()
+            
+            st.subheader("🏆 Top 5 Verified Suppliers")
+            
+            for idx, supplier in enumerate(result.get('top_5', []), 1):
+                with st.container():
+                    col1, col2, col3 = st.columns([2, 2, 1])
+                    
+                    with col1:
+                        st.markdown(f"### #{idx} {supplier.get('name', 'N/A')}")
+                    
+                    with col2:
+                        rating = supplier.get('rating', 0)
+                        stars = "⭐" * int(rating) + ("✨" if rating % 1 >= 0.5 else "")
+                        st.markdown(f"**{rating}/5.0** {stars}")
+                    
+                    with col3:
+                        relevance = supplier.get('relevance_score', 0)
+                        st.markdown(f"📊 **Relevance: {relevance:.0f}%**")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.write(f"📍 {supplier.get('city', 'N/A')}, {supplier.get('country', 'N/A')}")
+                    with col2:
+                        st.write(f"🏢 {supplier.get('platform', 'N/A')}")
+                    with col3:
+                        st.write(f"⏱️ {supplier.get('years_active', 'N/A')} yrs active")
+                    with col4:
+                        st.write(f"⭐ {supplier.get('review_count', 'N/A')} reviews")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"📧 {supplier.get('email', 'N/A')}")
+                    with col2:
+                        st.write(f"📱 {supplier.get('phone', 'N/A')}")
+                    
+                    if supplier.get('wechat'):
+                        st.write(f"💬 WeChat: `{supplier.get('wechat')}`")
+                    
+                    if supplier.get('ai_score'):
+                        st.write(f"🤖 AI Score: **{supplier.get('ai_score')}/10** - {supplier.get('key_strength', 'Strong supplier')}")
+                    
+                    st.divider()
+            
+            st.download_button(
+                label="📥 Export as JSON",
+                data=json.dumps(result, indent=2),
+                file_name=f"dealbaku_{product_query.replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        else:
+            st.error(f"❌ Error: {result.get('error')}")
+    
+    elif search_button:
         st.warning("⚠️ Please enter a product name")
 
-# Footer
-st.write("")
-st.write("---")
-st.write("🚀 **Powered by Zhipu AI GLM-4.7-Flash** | Built for international traders")
+with tab2:
+    st.markdown("""
+    ## About Dealbaku
+    
+    Dealbaku is an **AI-powered supplier intelligence platform** that helps importers and traders 
+    find verified suppliers from B2B marketplaces in minutes.
+    
+    ### Features
+    - 🔍 Smart Supplier Filtering - AI analyzes 15+ suppliers
+    - 📊 Market Intelligence - Real pricing, certifications, lead times
+    - 🤖 AI Ranking - Zhipu GLM-4 analyzes by product relevance
+    - ✅ Verified Data - Suppliers with 5-18+ years in business
+    - 📥 Export Results - Download as JSON
+    
+    ### Supported Platforms
+    - Alibaba, Global Sources, Made-in-China, YiwuGo
+    
+    ### Use Cases
+    - Finding manufacturers for bulk orders
+    - Sourcing components
+    - International trade & import-export
+    - Supply chain optimization
+    
+    **Version**: 2.0 (Zhipu AI Enhanced)  
+    Made with ❤️ for international traders
+    """)
+
+st.markdown("---")
+st.markdown("""
+    <div style="text-align: center; color: #999; font-size: 12px; padding: 20px;">
+    🚀 <b>Dealbaku</b> | AI Supplier Intelligence | Powered by Zhipu AI
+    </div>
+""", unsafe_allow_html=True)
