@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+dealbaku_supplier_analysis_*.json
+dealbaku_supplier_analysis_*.txt
